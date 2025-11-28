@@ -1,0 +1,5 @@
+{
+  "name": "MindCanvas AI",
+  "description": "An infinite whiteboard that turns documents into mind maps using Google Gemini.",
+  "requestFramePermissions": []
+}
