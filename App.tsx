@@ -34,15 +34,7 @@ const DEFAULT_NODE_STYLE = {
 };
 
 // Initial placeholder data
-const initialNodes: Node[] = [
-  { 
-    id: 'welcome', 
-    type: 'editableNode',
-    position: { x: 500, y: 300 }, 
-    data: { label: 'Welcome to MindCanvas!', details: 'Click here to edit text.' }, 
-    style: DEFAULT_NODE_STYLE
-  }
-];
+const initialNodes: Node[] = [];
 
 function MindCanvas() {
   const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
