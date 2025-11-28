@@ -23,6 +23,7 @@ export interface AppState {
 export type CustomNodeData = {
   label: string;
   details?: string;
+  url?: string;
   isGenerated?: boolean;
 };
 

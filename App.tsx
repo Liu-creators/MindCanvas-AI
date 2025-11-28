@@ -8,7 +8,8 @@ import {
   ConnectionMode, 
   ReactFlowProvider,
   Node,
-  Edge
+  Edge,
+  useReactFlow
 } from '@xyflow/react';
 
 import Sidebar from './components/Sidebar';
@@ -18,6 +19,19 @@ import { generateGraphFromText, expandGraphSelection } from './services/geminiSe
 import { transformAIResponseToFlow, getLayoutedElements } from './utils/layout';
 import { AppState } from './types';
 
+// Default style for new nodes
+const DEFAULT_NODE_STYLE = { 
+  background: '#fff', 
+  border: '2px solid #000', 
+  borderRadius: '8px', 
+  fontFamily: 'Kalam, cursive', 
+  padding: '12px', 
+  boxShadow: '4px 4px 0px rgba(0,0,0,1)',
+  width: 200,
+  fontSize: '18px',
+  textAlign: 'center' as const
+};
+
 // Initial placeholder data
 const initialNodes: Node[] = [
   { 
@@ -25,17 +39,7 @@ const initialNodes: Node[] = [
     type: 'editableNode',
     position: { x: 500, y: 300 }, 
     data: { label: 'Welcome to MindCanvas!', details: 'Click here to edit text.' }, 
-    style: { 
-      background: '#fff', 
-      border: '2px solid #000', 
-      borderRadius: '8px', 
-      fontFamily: 'Kalam, cursive', 
-      padding: '12px', 
-      boxShadow: '4px 4px 0px rgba(0,0,0,1)',
-      width: 200,
-      fontSize: '18px',
-      textAlign: 'center'
-    } 
+    style: DEFAULT_NODE_STYLE
   }
 ];
 
@@ -45,6 +49,8 @@ function MindCanvas() {
   const [selectedNodes, setSelectedNodes] = useState<Node[]>([]);
   const [originalDocContext, setOriginalDocContext] = useState<string>('');
   
+  const { getViewport } = useReactFlow();
+
   const [appState, setAppState] = useState<AppState>({
     isLoading: false,
     loadingMessage: '',
@@ -56,6 +62,44 @@ function MindCanvas() {
   const onSelectionChange = useCallback(({ nodes }: { nodes: Node[] }) => {
     setSelectedNodes(nodes);
   }, []);
+
+  const handleStyleChange = (newStyle: React.CSSProperties) => {
+    setNodes((nds) => 
+      nds.map((node) => {
+        const isSelected = selectedNodes.some(sn => sn.id === node.id);
+        if (isSelected) {
+          return {
+            ...node,
+            style: {
+              ...node.style,
+              ...newStyle,
+            },
+          };
+        }
+        return node;
+      })
+    );
+  };
+
+  const handleAddNode = useCallback(() => {
+    const { x, y, zoom } = getViewport();
+    // Calculate center of the current viewport
+    // Viewport logic: x/y are offsets. 
+    // To get center in flow coords: (-x + width/2) / zoom
+    // We assume a standard window size if we can't get dimensions, but for now we'll just put it near the middle of current view roughly.
+    const centerX = (-x + (window.innerWidth / 2)) / zoom;
+    const centerY = (-y + (window.innerHeight / 2)) / zoom;
+
+    const newNode: Node = {
+      id: `manual-${Date.now()}`,
+      type: 'editableNode',
+      position: { x: centerX - 100, y: centerY - 50 }, // Center the node (width 200, height ~100)
+      data: { label: 'New Concept', details: '' },
+      style: DEFAULT_NODE_STYLE,
+    };
+
+    setNodes((nds) => nds.concat(newNode));
+  }, [getViewport, setNodes]);
 
   const handleFileUpload = async (file: File) => {
     const key = process.env.API_KEY;
@@ -164,6 +208,8 @@ function MindCanvas() {
       <FloatingToolbar 
         selectedCount={selectedNodes.length}
         onGenerate={handleAIExpansion}
+        onStyleChange={handleStyleChange}
+        onAddNode={handleAddNode}
         onCancel={() => setSelectedNodes([])}
       />
     </div>
