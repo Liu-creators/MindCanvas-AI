@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Wand2, X, Type, Minus, MoreHorizontal, MousePointer2, Plus } from 'lucide-react';
+import { Wand2, X, Type, Minus, MoreHorizontal, MousePointer2, Plus, Hand } from 'lucide-react';
 
 interface FloatingToolbarProps {
   onGenerate: (prompt: string) => void;
@@ -7,6 +7,8 @@ interface FloatingToolbarProps {
   onStyleChange: (style: React.CSSProperties) => void;
   onAddNode: () => void;
   selectedCount: number;
+  activeTool: 'hand' | 'pointer';
+  onToolChange: (tool: 'hand' | 'pointer') => void;
 }
 
 const COLORS = [
@@ -18,13 +20,41 @@ const COLORS = [
   { bg: '#e9d5ff', label: 'Purple' }, // purple-200
 ];
 
-const FloatingToolbar: React.FC<FloatingToolbarProps> = ({ onGenerate, onCancel, onStyleChange, onAddNode, selectedCount }) => {
+const FloatingToolbar: React.FC<FloatingToolbarProps> = ({ 
+  onGenerate, 
+  onCancel, 
+  onStyleChange, 
+  onAddNode, 
+  selectedCount,
+  activeTool,
+  onToolChange
+}) => {
   const [prompt, setPrompt] = useState('');
 
   // Idle Mode: Show generic canvas actions when nothing is selected
   if (selectedCount === 0) {
     return (
-      <div className="absolute bottom-8 left-1/2 transform -translate-x-1/2 z-50 animate-in slide-in-from-bottom-5 fade-in duration-300">
+      <div className="absolute bottom-8 left-1/2 transform -translate-x-1/2 z-50 animate-in slide-in-from-bottom-5 fade-in duration-300 flex items-center gap-3">
+        
+        {/* Tool Switcher */}
+        <div className="flex items-center gap-1 bg-white border-2 border-slate-900 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] rounded-full p-1">
+            <button 
+                onClick={() => onToolChange('hand')}
+                className={`p-2 rounded-full transition-colors ${activeTool === 'hand' ? 'bg-slate-900 text-white' : 'text-slate-500 hover:bg-slate-100'}`}
+                title="Hand Tool (Pan)"
+            >
+                <Hand className="w-5 h-5" />
+            </button>
+            <button 
+                onClick={() => onToolChange('pointer')}
+                className={`p-2 rounded-full transition-colors ${activeTool === 'pointer' ? 'bg-slate-900 text-white' : 'text-slate-500 hover:bg-slate-100'}`}
+                title="Pointer Tool (Select)"
+            >
+                <MousePointer2 className="w-5 h-5" />
+            </button>
+        </div>
+
+        {/* Add Node Button */}
         <button 
           onClick={onAddNode}
           className="flex items-center gap-2 bg-white border-2 border-slate-900 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] text-slate-900 px-6 py-3 rounded-full hover:bg-slate-50 hover:translate-y-[-2px] transition-all font-['Kalam'] font-bold text-lg active:translate-y-[0px] active:shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]"
@@ -47,7 +77,7 @@ const FloatingToolbar: React.FC<FloatingToolbarProps> = ({ onGenerate, onCancel,
 
   return (
     <div className="absolute bottom-8 left-1/2 transform -translate-x-1/2 z-50 animate-in slide-in-from-bottom-5 fade-in duration-300">
-      <div className="bg-white border-2 border-slate-900 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] rounded-xl p-3 flex flex-col gap-3 w-[400px]">
+      <div className="bg-white border-2 border-slate-900 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] rounded-xl p-3 flex flex-col gap-3 w-auto min-w-[400px]">
         
         {/* Header */}
         <div className="flex justify-between items-center border-b border-slate-100 pb-2">
@@ -61,7 +91,7 @@ const FloatingToolbar: React.FC<FloatingToolbarProps> = ({ onGenerate, onCancel,
         </div>
 
         {/* Style Controls */}
-        <div className="flex items-center justify-between gap-2 px-1">
+        <div className="flex items-center justify-between gap-3 px-1">
           {/* Colors */}
           <div className="flex gap-1.5 items-center">
             {COLORS.map((c) => (
@@ -77,7 +107,7 @@ const FloatingToolbar: React.FC<FloatingToolbarProps> = ({ onGenerate, onCancel,
           
           <div className="w-[1px] h-5 bg-slate-200" />
 
-          {/* Borders & Fonts */}
+          {/* Borders */}
           <div className="flex gap-1">
             <button 
               onClick={() => onStyleChange({ borderStyle: 'solid' })}
@@ -91,7 +121,12 @@ const FloatingToolbar: React.FC<FloatingToolbarProps> = ({ onGenerate, onCancel,
             >
               <MoreHorizontal className="w-4 h-4" />
             </button>
-            <div className="w-[1px] h-5 bg-slate-200 mx-1" />
+          </div>
+
+          <div className="w-[1px] h-5 bg-slate-200" />
+
+          {/* Fonts */}
+          <div className="flex gap-1">
             <button 
               onClick={() => onStyleChange({ fontFamily: 'Kalam, cursive' })}
               className="p-1 rounded hover:bg-slate-100 text-slate-600 font-['Kalam'] font-bold text-xs" title="Hand-drawn Font"
@@ -103,6 +138,30 @@ const FloatingToolbar: React.FC<FloatingToolbarProps> = ({ onGenerate, onCancel,
               className="p-1 rounded hover:bg-slate-100 text-slate-600 font-sans font-bold text-xs" title="Clean Font"
             >
               Aa
+            </button>
+          </div>
+
+          <div className="w-[1px] h-5 bg-slate-200" />
+
+          {/* Sizes */}
+          <div className="flex gap-1 items-center">
+             <button 
+              onClick={() => onStyleChange({ width: 160, fontSize: '14px' })}
+              className="p-1 w-7 h-7 flex items-center justify-center rounded hover:bg-slate-100 text-slate-600 font-bold text-xs" title="Small"
+            >
+              S
+            </button>
+            <button 
+              onClick={() => onStyleChange({ width: 220, fontSize: '18px' })}
+              className="p-1 w-7 h-7 flex items-center justify-center rounded hover:bg-slate-100 text-slate-600 font-bold text-sm" title="Medium"
+            >
+              M
+            </button>
+            <button 
+              onClick={() => onStyleChange({ width: 320, fontSize: '24px' })}
+              className="p-1 w-7 h-7 flex items-center justify-center rounded hover:bg-slate-100 text-slate-600 font-bold text-lg" title="Large"
+            >
+              L
             </button>
           </div>
         </div>

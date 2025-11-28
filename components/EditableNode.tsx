@@ -5,6 +5,7 @@ import { Link as LinkIcon, ExternalLink } from 'lucide-react';
 
 const EditableNode = ({ id, data, isConnectable, selected }: NodeProps<CustomNodeData>) => {
   const { updateNodeData } = useReactFlow();
+  const containerRef = useRef<HTMLDivElement>(null);
   const labelRef = useRef<HTMLTextAreaElement>(null);
   const detailsRef = useRef<HTMLTextAreaElement>(null);
   const [isEditingUrl, setIsEditingUrl] = useState(false);
@@ -22,6 +23,22 @@ const EditableNode = ({ id, data, isConnectable, selected }: NodeProps<CustomNod
     adjustHeight(labelRef.current);
     adjustHeight(detailsRef.current);
   }, [data.label, data.details]);
+
+  // Observer to re-adjust height when the node width changes (e.g. via S/M/L buttons)
+  useEffect(() => {
+    if (!containerRef.current) return;
+    
+    const observer = new ResizeObserver(() => {
+        // Wrap in requestAnimationFrame to avoid "ResizeObserver loop completed with undelivered notifications" error
+        window.requestAnimationFrame(() => {
+            adjustHeight(labelRef.current);
+            adjustHeight(detailsRef.current);
+        });
+    });
+    
+    observer.observe(containerRef.current);
+    return () => observer.disconnect();
+  }, []);
 
   useEffect(() => {
     setTempUrl(data.url || '');
@@ -57,7 +74,7 @@ const EditableNode = ({ id, data, isConnectable, selected }: NodeProps<CustomNod
     <>
       <Handle type="target" position={Position.Top} isConnectable={isConnectable} className="!bg-slate-900 !w-3 !h-3" />
       
-      <div className="flex flex-col gap-2 min-h-[40px]">
+      <div ref={containerRef} className="flex flex-col gap-2 min-h-[40px]">
         {/* Label Input */}
         <textarea
           ref={labelRef}
@@ -69,10 +86,10 @@ const EditableNode = ({ id, data, isConnectable, selected }: NodeProps<CustomNod
           style={{ fontFamily: 'inherit' }}
         />
         
-        {/* Details Input */}
+        {/* Details Input - uses relative font size (0.75em) to scale with parent */}
         <textarea 
             ref={detailsRef}
-            className="nodrag bg-transparent text-xs w-full resize-none border-t border-dashed border-slate-300 pt-2 outline-none focus:bg-purple-50/50 focus:ring-2 focus:ring-purple-200 rounded px-1 text-center text-slate-600 overflow-hidden leading-snug placeholder-slate-300"
+            className="nodrag bg-transparent text-[0.75em] w-full resize-none border-t border-dashed border-slate-300 pt-2 outline-none focus:bg-purple-50/50 focus:ring-2 focus:ring-purple-200 rounded px-1 text-center text-slate-600 overflow-hidden leading-snug placeholder-slate-300"
             value={data.details || ''}
             onChange={handleDetailsChange}
             placeholder="Add details..."

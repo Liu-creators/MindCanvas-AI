@@ -9,7 +9,8 @@ import {
   ReactFlowProvider,
   Node,
   Edge,
-  useReactFlow
+  useReactFlow,
+  SelectionMode
 } from '@xyflow/react';
 
 import Sidebar from './components/Sidebar';
@@ -48,6 +49,7 @@ function MindCanvas() {
   const [edges, setEdges, onEdgesChange] = useEdgesState([]);
   const [selectedNodes, setSelectedNodes] = useState<Node[]>([]);
   const [originalDocContext, setOriginalDocContext] = useState<string>('');
+  const [activeTool, setActiveTool] = useState<'hand' | 'pointer'>('hand');
   
   const { getViewport } = useReactFlow();
 
@@ -86,7 +88,6 @@ function MindCanvas() {
     // Calculate center of the current viewport
     // Viewport logic: x/y are offsets. 
     // To get center in flow coords: (-x + width/2) / zoom
-    // We assume a standard window size if we can't get dimensions, but for now we'll just put it near the middle of current view roughly.
     const centerX = (-x + (window.innerWidth / 2)) / zoom;
     const centerY = (-y + (window.innerHeight / 2)) / zoom;
 
@@ -198,6 +199,10 @@ function MindCanvas() {
         onEdgesChange={onEdgesChange}
         onSelectionChange={onSelectionChange}
         connectionMode={ConnectionMode.Loose}
+        panOnDrag={activeTool === 'hand'}
+        selectionOnDrag={activeTool === 'pointer'}
+        selectionMode={SelectionMode.Partial}
+        panOnScroll={true}
         fitView
         className="bg-slate-50"
       >
@@ -211,6 +216,8 @@ function MindCanvas() {
         onStyleChange={handleStyleChange}
         onAddNode={handleAddNode}
         onCancel={() => setSelectedNodes([])}
+        activeTool={activeTool}
+        onToolChange={setActiveTool}
       />
     </div>
   );
