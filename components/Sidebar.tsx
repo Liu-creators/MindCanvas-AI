@@ -1,85 +1,135 @@
 import React, { useRef, useState } from 'react';
-import { Upload, AlertCircle, Loader2, ChevronDown, FileText } from 'lucide-react';
+import { Menu, Upload, Download, FolderInput, FileText, Sparkles, X } from 'lucide-react';
 
 interface SidebarProps {
   onFileUpload: (file: File) => void;
+  onExportJSON: () => void;
+  onImportJSON: (file: File) => void;
   isLoading: boolean;
 }
 
-const Sidebar: React.FC<SidebarProps> = ({ onFileUpload, isLoading }) => {
+const Sidebar: React.FC<SidebarProps> = ({ onFileUpload, onExportJSON, onImportJSON, isLoading }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const [isOpen, setIsOpen] = useState(false);
+  const jsonInputRef = useRef<HTMLInputElement>(null);
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       onFileUpload(e.target.files[0]);
-      setIsOpen(false);
+      e.target.value = '';
     }
   };
 
-  const triggerUpload = () => {
-    fileInputRef.current?.click();
+  const handleJSONImport = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      onImportJSON(e.target.files[0]);
+      e.target.value = '';
+      setIsMenuOpen(false);
+    }
+  };
+
+  const handleExport = () => {
+    onExportJSON();
+    setIsMenuOpen(false);
   };
 
   return (
-    <div className="absolute top-4 left-4 z-40 flex flex-col gap-3">
-      {/* Brand Card */}
-      <div className="bg-white px-4 py-3 rounded-xl shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] border-2 border-slate-900 w-fit">
-        <h1 className="text-xl font-bold font-['Kalam'] text-slate-900 leading-none">MindCanvas AI</h1>
-      </div>
-
-      {/* Trigger Button */}
-      <div className="relative">
+    <>
+      {/* Compact Menu Button */}
+      <div className="absolute top-4 left-4 z-40">
         <button
-          onClick={() => setIsOpen(!isOpen)}
-          className={`flex items-center gap-2 px-4 py-2.5 bg-white border-2 border-slate-900 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] rounded-lg font-bold text-slate-700 hover:bg-slate-50 transition-all ${isOpen ? 'translate-y-[2px] shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]' : ''}`}
+          onClick={() => setIsMenuOpen(!isMenuOpen)}
+          className="p-2.5 bg-white border-2 border-slate-900 shadow-[3px_3px_0px_0px_rgba(0,0,0,1)] rounded-lg hover:bg-slate-50 transition-all hover:translate-y-[1px] hover:shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]"
+          title="Menu"
         >
-          <Upload className="w-4 h-4" />
-          <span>Import Document</span>
-          <ChevronDown className={`w-4 h-4 transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`} />
+          {isMenuOpen ? <X size={20} /> : <Menu size={20} />}
         </button>
-
-        {/* Popover */}
-        {isOpen && (
-          <div className="absolute top-full left-0 mt-2 w-72 bg-white border-2 border-slate-900 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] rounded-xl p-4 animate-in fade-in slide-in-from-top-2 z-50">
-            {/* Dropzone Area */}
-            <div
-              onClick={triggerUpload}
-              className="group cursor-pointer border-2 border-dashed border-slate-300 rounded-lg p-6 flex flex-col items-center justify-center gap-2 hover:bg-slate-50 hover:border-purple-400 transition-colors bg-slate-50/50"
-            >
-              <input
-                type="file"
-                ref={fileInputRef}
-                onChange={handleFileChange}
-                accept=".txt,.md,.pdf" 
-                className="hidden"
-              />
-              
-              {isLoading ? (
-                <Loader2 className="w-8 h-8 animate-spin text-purple-600 mb-1" />
-              ) : (
-                <div className="p-3 bg-white border-2 border-slate-200 rounded-full group-hover:scale-110 group-hover:border-purple-200 transition-all shadow-sm">
-                   <FileText className="w-6 h-6 text-slate-400 group-hover:text-purple-600" />
-                </div>
-              )}
-              
-              <div className="text-center mt-1">
-                <p className="text-sm font-bold text-slate-700 group-hover:text-purple-700 transition-colors">Click to Upload</p>
-                <p className="text-[10px] text-slate-400 font-medium">Supports .txt, .md, .pdf</p>
-              </div>
-            </div>
-
-            {/* Tip Section */}
-            <div className="mt-3 p-2.5 bg-blue-50 rounded border border-blue-100 flex gap-2 items-start">
-              <AlertCircle className="w-3.5 h-3.5 text-blue-600 mt-0.5 shrink-0" />
-              <p className="text-[10px] text-blue-700 leading-relaxed font-medium">
-                Upload a text-based document. AI will extract key concepts and build a map on the canvas.
-              </p>
-            </div>
-          </div>
-        )}
       </div>
-    </div>
+
+      {/* Dropdown Menu */}
+      {isMenuOpen && (
+        <div className="absolute top-16 left-4 z-40 bg-white border-2 border-slate-900 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] rounded-xl p-2 w-64 animate-in fade-in slide-in-from-top-2">
+          {/* Brand Header */}
+          <div className="px-3 py-2 border-b border-slate-200 mb-2">
+            <h2 className="text-lg font-bold font-['Kalam'] text-slate-900">MindCanvas AI</h2>
+            <p className="text-[10px] text-slate-500 mt-0.5">💾 Auto-saves every 2s</p>
+          </div>
+
+          {/* Menu Items */}
+          <div className="space-y-1">
+            {/* AI Generate from Document */}
+            <button
+              onClick={() => {
+                fileInputRef.current?.click();
+                setIsMenuOpen(false);
+              }}
+              disabled={isLoading}
+              className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-purple-50 text-left transition-colors group disabled:opacity-50"
+            >
+              <div className="p-1.5 bg-purple-100 rounded-md group-hover:bg-purple-200 transition-colors">
+                <Sparkles size={16} className="text-purple-600" />
+              </div>
+              <div className="flex-1">
+                <p className="text-sm font-semibold text-slate-800">AI Generate from Text</p>
+                <p className="text-[10px] text-slate-500">Upload .txt, .md, .pdf</p>
+              </div>
+            </button>
+            <input
+              type="file"
+              ref={fileInputRef}
+              onChange={handleFileChange}
+              accept=".txt,.md,.pdf"
+              className="hidden"
+            />
+
+            <div className="h-px bg-slate-200 my-1"></div>
+
+            {/* Export JSON */}
+            <button
+              onClick={handleExport}
+              className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-blue-50 text-left transition-colors group"
+            >
+              <div className="p-1.5 bg-blue-100 rounded-md group-hover:bg-blue-200 transition-colors">
+                <Download size={16} className="text-blue-600" />
+              </div>
+              <div className="flex-1">
+                <p className="text-sm font-semibold text-slate-800">Export as JSON</p>
+                <p className="text-[10px] text-slate-500">Save your canvas</p>
+              </div>
+            </button>
+
+            {/* Import JSON */}
+            <button
+              onClick={() => jsonInputRef.current?.click()}
+              className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-green-50 text-left transition-colors group"
+            >
+              <div className="p-1.5 bg-green-100 rounded-md group-hover:bg-green-200 transition-colors">
+                <FolderInput size={16} className="text-green-600" />
+              </div>
+              <div className="flex-1">
+                <p className="text-sm font-semibold text-slate-800">Import JSON</p>
+                <p className="text-[10px] text-slate-500">Load saved canvas</p>
+              </div>
+            </button>
+            <input
+              type="file"
+              ref={jsonInputRef}
+              onChange={handleJSONImport}
+              accept=".json"
+              className="hidden"
+            />
+          </div>
+        </div>
+      )}
+
+      {/* Loading Overlay Banner (when importing) */}
+      {isLoading && (
+        <div className="absolute top-4 left-1/2 transform -translate-x-1/2 z-50 bg-purple-600 text-white px-4 py-2 rounded-full text-sm font-medium shadow-lg flex items-center gap-2">
+          <div className="w-2 h-2 bg-white rounded-full animate-bounce"></div>
+          Processing document...
+        </div>
+      )}
+    </>
   );
 };
 

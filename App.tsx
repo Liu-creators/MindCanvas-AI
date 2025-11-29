@@ -1,11 +1,11 @@
-import React, { useState, useCallback, useMemo } from 'react';
-import { 
-  ReactFlow, 
-  Background, 
-  Controls, 
-  useNodesState, 
-  useEdgesState, 
-  ConnectionMode, 
+import React, { useState, useCallback, useMemo, useEffect } from 'react';
+import {
+  ReactFlow,
+  Background,
+  Controls,
+  useNodesState,
+  useEdgesState,
+  ConnectionMode,
   ReactFlowProvider,
   Node,
   Edge,
@@ -19,14 +19,23 @@ import EditableNode from './components/EditableNode';
 import { generateGraphFromText, expandGraphSelection } from './services/geminiService';
 import { transformAIResponseToFlow, getLayoutedElements } from './utils/layout';
 import { AppState } from './types';
+import {
+  saveToLocalStorage,
+  loadFromLocalStorage,
+  exportToJSON,
+  importFromJSON,
+  createCanvasData,
+  CanvasData
+} from './services/storageService';
+import { migrateCanvas } from './utils/migration';
 
 // Default style for new nodes
-const DEFAULT_NODE_STYLE = { 
-  background: '#fff', 
-  border: '2px solid #000', 
-  borderRadius: '8px', 
-  fontFamily: 'Kalam, cursive', 
-  padding: '12px', 
+const DEFAULT_NODE_STYLE = {
+  background: '#fff',
+  border: '2px solid #000',
+  borderRadius: '8px',
+  fontFamily: 'Kalam, cursive',
+  padding: '12px',
   boxShadow: '4px 4px 0px rgba(0,0,0,1)',
   width: 200,
   fontSize: '18px',
@@ -42,7 +51,7 @@ function MindCanvas() {
   const [selectedNodes, setSelectedNodes] = useState<Node[]>([]);
   const [originalDocContext, setOriginalDocContext] = useState<string>('');
   const [activeTool, setActiveTool] = useState<'hand' | 'pointer'>('hand');
-  
+
   const { getViewport } = useReactFlow();
 
   const [appState, setAppState] = useState<AppState>({
@@ -53,12 +62,70 @@ function MindCanvas() {
 
   const nodeTypes = useMemo(() => ({ editableNode: EditableNode }), []);
 
+  // Auto-save to localStorage with throttle
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (nodes.length > 0 || edges.length > 0) {
+        const canvasData = createCanvasData(nodes, edges);
+        saveToLocalStorage(canvasData);
+      }
+    }, 2000); // 2 second throttle
+
+    return () => clearTimeout(timer);
+  }, [nodes, edges]);
+
+  // Load from localStorage on mount
+  useEffect(() => {
+    const savedData = loadFromLocalStorage();
+    if (savedData && savedData.nodes.length > 0) {
+      const migratedData = migrateCanvas(savedData);
+      setNodes(migratedData.nodes);
+      setEdges(migratedData.edges);
+    }
+  }, [setNodes, setEdges]);
+
   const onSelectionChange = useCallback(({ nodes }: { nodes: Node[] }) => {
     setSelectedNodes(nodes);
   }, []);
 
+  // Delete selected nodes and edges
+  const handleDelete = useCallback(() => {
+    if (selectedNodes.length === 0) return;
+
+    const selectedNodeIds = selectedNodes.map(n => n.id);
+
+    // Delete nodes
+    setNodes(nds => nds.filter(n => !selectedNodeIds.includes(n.id)));
+
+    // Delete edges connected to deleted nodes
+    setEdges(eds => eds.filter(e =>
+      !selectedNodeIds.includes(e.source) &&
+      !selectedNodeIds.includes(e.target)
+    ));
+
+    setSelectedNodes([]);
+  }, [selectedNodes, setNodes, setEdges]);
+
+  // Keyboard shortcut for delete
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Delete' || e.key === 'Backspace') {
+        // Don't trigger delete when typing in input/textarea
+        const target = e.target as HTMLElement;
+        if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA') {
+          return;
+        }
+        e.preventDefault();
+        handleDelete();
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [handleDelete]);
+
   const handleStyleChange = (newStyle: React.CSSProperties) => {
-    setNodes((nds) => 
+    setNodes((nds) =>
       nds.map((node) => {
         const isSelected = selectedNodes.some(sn => sn.id === node.id);
         if (isSelected) {
@@ -109,7 +176,7 @@ function MindCanvas() {
       setOriginalDocContext(text); // Store for context-aware expansion later
 
       setAppState(prev => ({ ...prev, loadingMessage: 'AI is analyzing structure...' }));
-      
+
       const graphData = await generateGraphFromText(key, text);
       const layouted = transformAIResponseToFlow(graphData);
 
@@ -123,6 +190,26 @@ function MindCanvas() {
     }
   };
 
+  // Export canvas as JSON file
+  const handleExportJSON = useCallback(() => {
+    const canvasData = createCanvasData(nodes, edges, 'MindCanvas Export');
+    exportToJSON(canvasData);
+  }, [nodes, edges]);
+
+  // Import canvas from JSON file
+  const handleImportJSON = useCallback(async (file: File) => {
+    try {
+      const data = await importFromJSON(file);
+      const migratedData = migrateCanvas(data);
+      setNodes(migratedData.nodes);
+      setEdges(migratedData.edges);
+      alert('✅ Canvas imported successfully!');
+    } catch (error: any) {
+      alert('❌ Failed to import: ' + error.message);
+      console.error('Import error:', error);
+    }
+  }, [setNodes, setEdges]);
+
   const handleAIExpansion = async (prompt: string) => {
     const key = process.env.API_KEY;
     if (!key || selectedNodes.length === 0) return;
@@ -132,29 +219,29 @@ function MindCanvas() {
     try {
       // Serialize selected nodes for context
       const selectionContext = JSON.stringify(selectedNodes.map(n => ({ id: n.id, label: n.data.label })));
-      
+
       const newGraphPart = await expandGraphSelection(
-        key, 
-        originalDocContext || "No original document, infer generic knowledge.", 
-        selectionContext, 
+        key,
+        originalDocContext || "No original document, infer generic knowledge.",
+        selectionContext,
         prompt
       );
 
       // Convert new part to Flow elements
       const newElements = transformAIResponseToFlow(newGraphPart);
-      
+
       // We need to merge carefully. 
       // Let's re-run layout on everything for cleaner look.
-      
+
       const allNodes = [...nodes, ...newElements.nodes];
       const allEdges = [...edges, ...newElements.edges];
-      
+
       // Deduplicate by ID
       const uniqueNodes = Array.from(new Map(allNodes.map(item => [item.id, item])).values());
       const uniqueEdges = Array.from(new Map(allEdges.map(item => [item.id, item])).values());
 
       const layouted = getLayoutedElements(uniqueNodes, uniqueEdges);
-      
+
       setNodes(layouted.nodes);
       setEdges(layouted.edges);
 
@@ -168,8 +255,10 @@ function MindCanvas() {
 
   return (
     <div className="w-full h-screen bg-slate-50 relative overflow-hidden font-sans">
-      <Sidebar 
-        onFileUpload={handleFileUpload} 
+      <Sidebar
+        onFileUpload={handleFileUpload}
+        onExportJSON={handleExportJSON}
+        onImportJSON={handleImportJSON}
         isLoading={appState.isLoading}
       />
 
@@ -202,11 +291,12 @@ function MindCanvas() {
         <Controls className="bg-white border-2 border-slate-900 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] rounded-lg overflow-hidden" />
       </ReactFlow>
 
-      <FloatingToolbar 
+      <FloatingToolbar
         selectedCount={selectedNodes.length}
         onGenerate={handleAIExpansion}
         onStyleChange={handleStyleChange}
         onAddNode={handleAddNode}
+        onDelete={handleDelete}
         onCancel={() => setSelectedNodes([])}
         activeTool={activeTool}
         onToolChange={setActiveTool}
